@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# This script manages the nvidia dGPU power state for different performance modes in Muxless laptops, like the ASUS ROG G14 2020 model.
+# It can switch between three modes:
+#  - battery: Turns off the GPU to save power.
+#  - perf: Activates the GPU for maximum performance.
+#  - auto: Sets the GPU to idle mode when inactive for a balance between performance and power saving.
+#
+# In order to function correctly, this script requires to be executed as root user.
+
+# GPU PCI address
+PCI="0000:01:00.0"
+
+# Main functions
+kill_gpu_processes() {
+    # Close any processes that may block GPU unload
+    pkill -f nvidia || true
+}
+
+unload_nvidia() {
+    modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia 2>/dev/null || true
+}
+
+load_nvidia() {
+    modprobe nvidia_uvm || true
+    modprobe nvidia_modeset || true
+    modprobe nvidia_drm || true
+    modprobe nvidia || true
+}
+
+power_off() {
+    echo auto > /sys/bus/pci/devices/$PCI/power/control
+}
+
+power_on() {
+    echo on > /sys/bus/pci/devices/$PCI/power/control
+}
+
+# Modes:
+MODE="$1"
+
+case "$MODE" in
+    off)
+        echo "[OFF] Shutting down GPU..."
+        kill_gpu_processes
+        unload_nvidia
+        power_off
+        echo "GPU OFF (ACPI D3)"
+        ;;
+
+    on)
+        echo "[ON] Activating GPU..."
+        load_nvidia
+        power_on
+        echo "GPU ON e moduli caricati"
+        ;;
+
+    auto)
+        echo "[AUTO] Hybrid mode: GPU idle when inactive"
+        load_nvidia
+        power_off
+        echo "GPU idle / low-power attivo"
+        ;;
+
+    *)
+        echo "Usage: gpu-mode {on|off|auto}"
+        exit 1
+        ;;
+esac
