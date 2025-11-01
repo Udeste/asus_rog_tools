@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # This script manages the nvidia dGPU power state for different performance modes in Muxless laptops, like the ASUS ROG G14 2020 model.
 # It can switch between three modes:
-#  - battery: Turns off the GPU to save power.
-#  - perf: Activates the GPU for maximum performance.
+#  - off: Turns off the GPU to save power.
+#  - on: Activates the GPU for maximum performance.
 #  - auto: Sets the GPU to idle mode when inactive for a balance between performance and power saving.
 #
 # In order to function correctly, this script requires to be executed as root user.
