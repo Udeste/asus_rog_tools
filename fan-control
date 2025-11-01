@@ -1,0 +1,129 @@
+#!/bin/bash
+
+#
+# Fan control script for ASUS laptops using asus-nb-wmi driver
+#
+# Usage: fan-control {silent|balanced|performance}
+#
+# It sets predefined fan speed curves for CPU and GPU based on the selected mode.
+# It requires write permissions to the hwmon interface, which may need sudo privileges or appropriate rules to allow non-root access.
+#
+# The privileges can be granted with an /etc/tmpfiles.d/asus_fan_perms.conf with the following content:
+: '
+# PWM1 and PWM2 auto points and temp files (any hwmon*)
+z /sys/devices/platform/asus-nb-wmi/hwmon/hwmon*/pwm*_auto_point*_pwm 664 root yourusername - -
+z /sys/devices/platform/asus-nb-wmi/hwmon/hwmon*/pwm*_auto_point*_temp 664 root yourusername - -
+
+# PWM1 and PWM2 enable files
+z /sys/devices/platform/asus-nb-wmi/hwmon/hwmon*/pwm*_enable 664 root yourusername - -
+'
+
+HWMON_PATH=""
+MODE="$1"
+
+# Find the correct hwmon path for asus_custom_fan_curve
+for d in /sys/devices/platform/asus-nb-wmi/hwmon/hwmon*/; do
+    if [ "$(cat "$d/name")" = "asus_custom_fan_curve" ]; then
+        HWMON_PATH="$d"
+        break
+    fi
+done
+
+# exit if hwmon path not found
+if [ -z "$HWMON_PATH" ]; then
+    echo "Error: asus_custom_fan_curve hwmon device not found."
+    exit 1
+fi
+
+echo "Found device at: $HWMON_PATH"
+
+case "$MODE" in
+    silent)
+        echo "Setting silent fan mode..."
+        CPU_FAN_CURVE_POINTS=( # TEMP (°C)  FAN SPEED (PWM)
+            20 0 \
+            40 10 \
+            51 15 \
+            54 20 \
+            57 30 \
+            61 40 \
+            65 50 \
+            80 80 \
+        )
+        GPU_FAN_CURVE_POINTS=( # TEMP (°C)  FAN SPEED (PWM)
+            20 0 \
+            40 10 \
+            51 15 \
+            54 25 \
+            57 35 \
+            61 45 \
+            65 55 \
+            98 85 \
+        )
+        ;;
+    balanced)
+        echo "Setting balanced fan mode..."
+        CPU_FAN_CURVE_POINTS=( # TEMP (°C)  FAN SPEED (PWM)
+            20 0 \
+            40 15 \
+            51 25 \
+            54 35 \
+            57 50 \
+            61 70 \
+            65 90 \
+            80 220 \
+        )
+        GPU_FAN_CURVE_POINTS=( # TEMP (°C)  FAN SPEED (PWM)
+            20 0 \
+            40 15 \
+            51 25 \
+            54 40 \
+            57 55 \
+            61 75 \
+            65 95 \
+            98 230 \
+        )
+        ;;
+    performance)
+        echo "Setting performance fan mode..."
+        CPU_FAN_CURVE_POINTS=( # TEMP (°C)  FAN SPEED (PWM)
+            20 0 \
+            40 20 \
+            51 35 \
+            54 50 \
+            57 70 \
+            61 90 \
+            65 110 \
+            80 255 \
+        )
+        GPU_FAN_CURVE_POINTS=( # TEMP (°C)  FAN SPEED (PWM)
+            20 0 \
+            40 20 \
+            51 35 \
+            54 55 \
+            57 75 \
+            61 95 \
+            65 115 \
+            85 255 \
+        )
+        ;;
+    *)
+        echo "Usage: fan-control {silent|balanced|performance}"
+        exit 1
+        ;;
+esac
+
+for i in {1..8}; do
+    cpu_temp=${CPU_FAN_CURVE_POINTS[$(( (i - 1) * 2 ))]}
+    cpu_pwm=${CPU_FAN_CURVE_POINTS[$(( (i - 1) * 2 + 1 ))]}
+    gpu_temp=${GPU_FAN_CURVE_POINTS[$(( (i - 1) * 2 ))]}
+    gpu_pwm=${GPU_FAN_CURVE_POINTS[$(( (i - 1) * 2 + 1 ))]}
+    echo "$cpu_temp" > "$HWMON_PATH"/pwm1_auto_point"${i}"_temp
+    echo "$cpu_pwm" > "$HWMON_PATH"/pwm1_auto_point"${i}"_pwm
+    echo "$gpu_temp" > "$HWMON_PATH"/pwm2_auto_point"${i}"_temp
+    echo "$gpu_pwm" > "$HWMON_PATH"/pwm2_auto_point"${i}"_pwm
+done
+
+echo 1 > "$HWMON_PATH"/pwm1_enable
+echo 1 > "$HWMON_PATH"/pwm2_enable
+
