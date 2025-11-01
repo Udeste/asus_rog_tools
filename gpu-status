@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# This script checks the power state of the NVIDIA GPU and outputs whether it is ON or IDLE.
+
+# Indirizzo PCI della GPU NVIDIA
+PCI="0000:01:00.0"
+
+# Legge lo stato della GPU
+GPU_STATE=$(cat /sys/bus/pci/devices/$PCI/power_state 2>/dev/null)
+
+# Traduci stato in testo leggibile
+if [[ "$GPU_STATE" == "D0" ]]; then
+    echo "GPU: ON"
+else
+    echo "GPU: OFF"
+fi
+
