@@ -2,13 +2,15 @@
 # This script manages the nvidia dGPU power state for different performance modes in Muxless laptops, like the ASUS ROG G14 2020 model.
 # It can switch between three modes:
 #  - off: Turns off the GPU to save power.
-#  - on: Activates the GPU for maximum performance.
-#  - auto: Sets the GPU to idle mode when inactive for a balance between performance and power saving.
+#  - on: Turns on the GPU for maximum performance.
 #
 # In order to function correctly, this script requires to be executed as root user.
 
 # GPU PCI address
-PCI="0000:01:00.0"
+GPU_PCI="0000:01:00.0"
+AUDIO_PCI="0000:01:00.1"
+USB_HOST_PCI="0000:01:00.2"
+USB_C_PCI="0000:01:00.3"
 
 # Main functions
 kill_gpu_processes() {
@@ -17,22 +19,26 @@ kill_gpu_processes() {
 }
 
 unload_nvidia() {
-    modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia 2>/dev/null || true
+    modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia i2c_nvidia_gpu 2>/dev/null || true
 }
 
-load_nvidia() {
-    modprobe nvidia_uvm || true
-    modprobe nvidia_modeset || true
-    modprobe nvidia_drm || true
-    modprobe nvidia || true
+# Not necessary because modules are reloaded automatically on device reattachment
+# load_nvidia() {
+#     modprobe nvidia_uvm || true
+#     modprobe nvidia_modeset || true
+#     modprobe nvidia_drm || true
+#     modprobe nvidia || true
+# }
+
+reattach_nvidia_devices() {
+    echo 1 > /sys/bus/pci/rescan
 }
 
-power_off() {
-    echo auto > /sys/bus/pci/devices/$PCI/power/control
-}
-
-power_on() {
-    echo on > /sys/bus/pci/devices/$PCI/power/control
+detach_nvidia_devices() {
+    echo 1 > /sys/bus/pci/devices/$GPU_PCI/remove
+    echo 1 > /sys/bus/pci/devices/$AUDIO_PCI/remove
+    echo 1 > /sys/bus/pci/devices/$USB_HOST_PCI/remove
+    echo 1 > /sys/bus/pci/devices/$USB_C_PCI/remove
 }
 
 # Modes:
@@ -43,26 +49,28 @@ case "$MODE" in
         echo "[OFF] Shutting down GPU..."
         kill_gpu_processes
         unload_nvidia
-        power_off
-        echo "GPU OFF (ACPI D3)"
+        detach_nvidia_devices
+        echo "GPU OFF (removed from PCI bus)"
         ;;
 
     on)
         echo "[ON] Activating GPU..."
-        load_nvidia
-        power_on
-        echo "GPU ON e moduli caricati"
+        # load_nvidia
+        reattach_nvidia_devices
+        # power_on
+        echo "GPU ON (attached to PCI bus)"
         ;;
 
-    auto)
-        echo "[AUTO] Hybrid mode: GPU idle when inactive"
-        load_nvidia
-        power_off
-        echo "GPU idle / low-power attivo"
-        ;;
+    # auto)
+    #     echo "[AUTO] Hybrid mode: GPU idle when inactive"
+    #     # load_nvidia
+    #     reattach_nvidia_devices
+    #     # power_auto
+    #     echo "GPU idle / low-power attivo"
+    #     ;;
 
     *)
-        echo "Usage: gpu-mode {on|off|auto}"
+        echo "Usage: gpu-mode {on|off}"
         exit 1
         ;;
 esac
