@@ -13,23 +13,19 @@
 #
 
 import sys
-import os
+from modules.gpu_power_manager import GPUPowerManager
 from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QAction
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QTimer
 
-PCI = "0000:01:00.0"
-
-def get_gpu_state():
-    try:
-        with open(f"/sys/bus/pci/devices/{PCI}/power_state", "r") as f:
-            state = f.read().strip()
-            return "ON" if state == "D0" else "OFF"
-    except:
-        return "DETACHED"
+gpu_manager = GPUPowerManager()
 
 def run_gpu_mode(mode):
-    os.system(f"./gpu_mode {mode}")
+    match mode:
+        case "on":
+            gpu_manager.power_on()
+        case "off":
+            gpu_manager.power_off()
 
 app = QApplication(sys.argv)
 tray = QSystemTrayIcon()
@@ -49,22 +45,26 @@ menu.addAction(battery_action)
 # auto_action = QAction("Auto")
 # auto_action.triggered.connect(lambda: run_gpu_mode("auto"))
 # menu.addAction(auto_action)
+exit_action = QAction("Exit")
+exit_action.triggered.connect(lambda: sys.exit())
+menu.addAction(exit_action)
 
 tray.setContextMenu(menu)
 tray.show()
 
 # Update icon every 10 seconds
 def update_icon():
-    state = get_gpu_state()
-    if state == "ON":
-        tray.setIcon(QIcon.fromTheme("gpu-on"))
-        tray.setToolTip("GPU ON")
-    elif state == "OFF":
-        tray.setIcon(QIcon.fromTheme("gpu-off"))
-        tray.setToolTip("GPU OFF")
-    else:
-        tray.setIcon(QIcon.fromTheme("gpu-detached"))
-        tray.setToolTip("GPU DETACHED")
+    state = gpu_manager.is_gpu_attached()
+    match state:
+        # case False:
+        #     tray.setToolTip("GPU OFF (suspended)")
+        #     tray.setIcon(QIcon.fromTheme("gpu-off"))
+        case True:
+            tray.setIcon(QIcon.fromTheme("gpu-on"))
+            tray.setToolTip("GPU ON")
+        case False:
+            tray.setToolTip("GPU OFF (detached)")
+            tray.setIcon(QIcon.fromTheme("gpu-detached"))
 
 timer = QTimer()
 timer.timeout.connect(update_icon)
