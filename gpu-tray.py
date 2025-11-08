@@ -5,7 +5,7 @@
 # It requires PyQt5 to be installed.
 # For fedora: sudo dnf install python3-qt5
 #
-# It also requires the existence of the script ./gpu-mode, and the icons gpu-on, gpu-off and gpu-detached to be available in the system theme.
+# It also requires the existence of the icons gpu-on, gpu-off and gpu-detached to be available in the system theme.
 # Usually the icons can be placed under ~/.local/share/icons/
 #
 # The script should be run in background, for example by adding it to the startup applications.
